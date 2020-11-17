@@ -41,17 +41,18 @@ def getcmd(frame, component):
     return None
 
 
-def import_transport_for_implant(component, transport_name, transport_config):
+def import_transport_for_implant(component, transport_config):
+    transport_name = component.config['vzhivlyat']['transport_name']
     import_string = f"import transports.{transport_name} as transport"
     transport_config['logging'] = component.logging
-    exec(import_string)
+    exec(import_string, globals())
     try:
         # I know this is fucking weird, but you find a better way to do this then
         implant_transport = transport.Transport()
         component.transport = implant_transport
         component.logging.log(f"Imported {transport_name}",
                               level="debug", source="lib.yadro")
-        transport.prep_transport(transport_config)
+        component.transport.prep_transport(transport_config)
     except ImportError:
         component.logging.log(f"{transport_name} not found!, attempted import",
                               level="error", source="lib.yadro")
