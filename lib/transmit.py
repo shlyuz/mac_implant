@@ -18,7 +18,8 @@ def uncook_transmit_frame(component, frame):
     :return:
     """
     # Asymmetric Encryption Routine
-    frame_box = lib.crypto.asymmetric.prepare_box(component.initial_private_key, component.current_lp_pk)
+    # TODO: Rotate component.inital_private_key
+    frame_box = lib.crypto.asymmetric.prepare_box(component.current_private_key, component.current_lp_pubkey)
     transmit_frame = lib.crypto.asymmetric.decrypt(frame_box, frame)
 
     # Decoding Routine
@@ -73,7 +74,7 @@ def cook_transmit_frame(component, data):
     component.logging.log(f"Unenveloped data: {enveloped_frames}", level="debug", source="lib.networking")
 
     # Asymmetric Encryption
-    frame_box = lib.crypto.asymmetric.prepare_box(component.initial_private_key, component.current_lp_pk)
+    frame_box = lib.crypto.asymmetric.prepare_box(component.initial_private_key, component.current_lp_pubkey)
     transmit_frames = lib.crypto.asymmetric.encrypt(frame_box, enveloped_frames)
 
     component.logging.log(f"Enveloped data: {transmit_frames}", level="debug", source="lib.networking")
@@ -111,6 +112,10 @@ def cook_sealed_frame(component, data):
     lp_pubkey = component.current_lp_pubkey
     frame_box = lib.crypto.asymmetric.prepare_sealed_box(lp_pubkey)
     transmit_frames = lib.crypto.asymmetric.encrypt(frame_box, enveloped_frames)
+
+    # Prepend the transmit frame with an init signature
+    init_signature = ast.literal_eval(component.config['vzhivlyat']['init_signature'])
+    transmit_frames = init_signature + transmit_frames
 
     component.logging.log(f"Enveloped init data: {transmit_frames}", level="debug", source="lib.transmit")
     return transmit_frames

