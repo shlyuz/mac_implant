@@ -64,20 +64,20 @@ with open("shlyuz.conf", "rb+") as configfile:
     configfile.seek(0)
     configfile.write(encoded_contents)
 
-# Decryption routine
-def read_encrypted_config():
-    with open("shlyuz.conf", "rb+") as configfile:
-        config_bytes = configfile.read()
-        decoded_content = lib.crypto.xor.single_byte_xor(config_bytes, 0x69)
-        pickled_decoded = pickle.loads(decoded_content)
-        decrypted_contents = lib.crypto.rc6.decrypt(config_encryption_key, pickled_decoded)
-        decrypted_config = decrypted_contents.decode('utf-8')
-    return decrypted_config
+# # Decryption routine
+# def read_encrypted_config():
+#     with open("shlyuz_rev_tcp_socket.conf", "rb+") as configfile:
+#         config_bytes = configfile.read()
+#         decoded_content = lib.crypto.xor.single_byte_xor(config_bytes, 0x69)
+#         pickled_decoded = pickle.loads(decoded_content)
+#         decrypted_contents = lib.crypto.rc6.decrypt(config_encryption_key, pickled_decoded)
+#         decrypted_config = decrypted_contents.decode('utf-8')
+#     return decrypted_config
+#
+# # Loading routine
+# def loading():
+#     config = configparser.RawConfigParser()
+#     config.read_string(read_encrypted_config())
+#     return config
 
-# Loading routine
-def loading():
-    config = configparser.RawConfigParser()
-    config.read_string(read_encrypted_config())
-    return config
-
-config = loading()
+# config = loading()

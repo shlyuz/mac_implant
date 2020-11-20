@@ -33,7 +33,8 @@ class Transport:
         except ConnectionRefusedError:
             from time import sleep
             sleep(10)
-            pass
+            self.trans_sock.connect((self.connect_addr, int(self.connect_port)))
+            return 0
         except Exception as e:
             self.logging.log(f"[{type(e).__name__}]: {e}", level="error", source=self.info['name'])
 
@@ -46,8 +47,13 @@ class Transport:
         #   case of success.
         # Your transport should not transmit NOOPs unless its used for a connectivity check
         slen = struct.pack('<I', len(data))
-        self.trans_sock.sendall(slen)
-        self.trans_sock.sendall(data)
+        try:
+            self.trans_sock.sendall(slen)
+            self.trans_sock.sendall(data)
+        except BrokenPipeError:
+            self.reconnect_socket()
+            self.trans_sock.sendall(slen)
+            self.trans_sock.sendall(data)
         return 0
 
     def recv_data(self):
@@ -59,16 +65,39 @@ class Transport:
                 frame_size = self.trans_sock.recv(4)
                 if frame_size == b'':
                     raise ConnectionResetError
-            except ConnectionResetError or BrokenPipeError:
+            # except ConnectionResetError or BrokenPipeError:
+            #     self.trans_sock.close()
+            #     self.reconnect_socket()
+            #       frame_size = self.trans_sock.recv(4)
+            except BrokenPipeError or ConnectionResetError:
                 self.trans_sock.close()
                 self.reconnect_socket()
-                frame_size = self.trans_sock.recv(4)
             except Exception as e:
                 self.logging.log(f"Critical [{type(e).__name__}] when recv_data: {e}",
                                  level="critical")
             slen = struct.unpack('<I', frame_size)[0]
             frame = self.trans_sock.recv(slen)
+            # self.reconnect_socket()
+            return frame
+        except ConnectionResetError or UnboundLocalError:
             self.reconnect_socket()
+            try:
+                frame_size = self.trans_sock.recv(4)
+                if frame_size == b'':
+                    raise ConnectionResetError
+            # except ConnectionResetError or BrokenPipeError:
+            #     self.trans_sock.close()
+            #     self.reconnect_socket()
+            #       frame_size = self.trans_sock.recv(4)
+            except BrokenPipeError or ConnectionResetError:
+                self.trans_sock.close()
+                self.reconnect_socket()
+            except Exception as e:
+                self.logging.log(f"Critical [{type(e).__name__}] when recv_data: {e}",
+                                 level="critical")
+            slen = struct.unpack('<I', frame_size)[0]
+            frame = self.trans_sock.recv(slen)
+            # self.reconnect_socket()
             return frame
         except struct.error as e:
             self.logging.log(f"invalid struct {e}", level="debug")

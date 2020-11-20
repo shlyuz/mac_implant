@@ -74,7 +74,7 @@ def cook_transmit_frame(component, data):
     component.logging.log(f"Unenveloped data: {enveloped_frames}", level="debug", source="lib.networking")
 
     # Asymmetric Encryption
-    frame_box = lib.crypto.asymmetric.prepare_box(component.initial_private_key, component.current_lp_pubkey)
+    frame_box = lib.crypto.asymmetric.prepare_box(component.current_private_key, component.current_lp_pubkey)
     transmit_frames = lib.crypto.asymmetric.encrypt(frame_box, enveloped_frames)
 
     component.logging.log(f"Enveloped data: {transmit_frames}", level="debug", source="lib.networking")

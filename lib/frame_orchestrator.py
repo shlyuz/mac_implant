@@ -20,7 +20,6 @@ def determine_destination(frame, component):
         return None
 
 
-def process_transport_frame(component, reply_frame):
-    uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, reply_frame).decode('utf-8'))
-    reply_frame = determine_destination(uncooked_frame, component)
+def process_transport_frame(component, transport_frame):
+    reply_frame = determine_destination(transport_frame, component)
     return reply_frame
