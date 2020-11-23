@@ -79,7 +79,7 @@ class Transport:
                 if e.errno == 54:  # Connection reset by peer, not sure why this is happening, we're out of sync with the LP. Will reset when socket time out is hit
                     self.trans_sock.close()
                     self.reconnect_socket()
-                    self.trans_sock.send(b'')
+                    self.send_data(b'')
                     frame_size = self.trans_sock.recv(4)
                 self.logging.log(f"Critical [{type(e).__name__}] when recv_data: {e}",
                                  level="critical")

@@ -143,6 +143,7 @@ def relay_init_frame(component, reply):
         component.transport.send_data(reply)
         sleep(5)
         init_response = component.transport.recv_data()
+        component.transport.send_data(b'') # LP Needs some data to stay in sync
         uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, init_response).decode('utf-8'))
         return uncooked_frame
     except Exception as e:
@@ -158,6 +159,8 @@ def request_instructions(component):
         component.transport.send_data(request_frame)
         sleep(5)
         reply = component.transport.recv_data()
+        if reply is None:
+            pass
         uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, reply).decode('utf-8'))
         return uncooked_frame
     except Exception as e:

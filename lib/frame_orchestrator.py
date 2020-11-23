@@ -1,7 +1,6 @@
 import ast
 
 from lib import yadro
-from lib import transmit
 
 destinations = {"ipi": yadro.init,
                 "irk": yadro.rekey,
