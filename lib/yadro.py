@@ -82,12 +82,11 @@ def send_cmd_output(component):
         event_history = {"timestamp": time(), "event": "RETURNING", "component": component.component_id}
         command['history'].append(event_history)
         done_commands.append(copy(command))
-        del component.cmd_done_queue[cmd_index]
     data = {'component_id': component.component_id, "cmd": "fcmd", "args": [done_commands, {"ipk": component.initial_public_key._public_key}]}
     instruction_frame = instructions.create_instruction_frame(data)
     request_frame = transmit.cook_transmit_frame(component, instruction_frame)
     component.transport.send_data(request_frame)
-    del done_commands
+    del done_commands # TODO: del command
     sleep(5)
     reply = component.transport.recv_data()
     uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, reply).decode('utf-8'))
@@ -185,8 +184,8 @@ def ack_cmds(frame, component):
     component.current_private_key = component.initial_private_key
     component.current_public_key = component.initial_public_key
     command_txids = frame['args'][0]
-    for command in command_txids:
-        cmd_index = _get_cmd_index(component, command['txid'], "done")
+    for command_txid in command_txids:
+        cmd_index = _get_cmd_index(component, command_txid, "done")
         del component.cmd_done_queue[cmd_index]
     return 0
 
@@ -194,13 +193,20 @@ def ack_cmds(frame, component):
 def run_instructions(component):
     for command in component.cmd_processing_queue:
         try:
+            cmd_index = _get_cmd_index(component, command['txid'], "processing")
             command['state'] = "EXECUTED"
             event_history = {"timestamp": time(), "event": "EXECUTED", "component": component.component_id}
             command['history'].append(event_history)
             component.logging.log(f"Executed {command['txid']}", level="info", source="lib.yadro")
             component.logging.log(f"Executed {command}", level="debug", source="lib.yadro")
-            # TODO: Actually execute the command here and retrieve the output, see #2
-            command['output'] = "> ayyylmao"  # TODO: FIXME
+            command['output'] = "> ayyylmao"
+            command['state'] = "FINISHED"
+            event_history = {"timestamp": time(), "event": "FINISHED", "component": component.component_id}
+            command['history'].append(event_history)
+            component.cmd_done_queue.append(copy(command))
+            del(component.cmd_processing_queue[cmd_index])
+            # TODO: FIXME
+            # TODO: Actually execute the command here and retrieve the output, see #2, add state of "FINISHED"
         except Exception as e:
             component.logging.log(f"Critical [{type(e).__name__}] when requesting command: {e}",
                                   level="critical", source=f"lib.yadro")
