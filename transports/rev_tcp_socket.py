@@ -25,6 +25,7 @@ class Transport:
         self.connect_addr = self.config['connect_addr']
         self.connect_port = int(self.config['connect_port'])
         self.trans_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.trans_sock.settimeout(300)
         try:
             self.logging.log(f"Attempting to connect to to {self.connect_addr}: {self.connect_port}", source=self.info['name'])
             self.trans_sock.connect((self.connect_addr, int(self.connect_port)))
@@ -50,7 +51,7 @@ class Transport:
         try:
             self.trans_sock.sendall(slen)
             self.trans_sock.sendall(data)
-        except BrokenPipeError:
+        except BrokenPipeError or socket.error or ConnectionResetError:
             self.reconnect_socket()
             self.trans_sock.sendall(slen)
             self.trans_sock.sendall(data)
@@ -79,7 +80,7 @@ class Transport:
             frame = self.trans_sock.recv(slen)
             # self.reconnect_socket()
             return frame
-        except ConnectionResetError or UnboundLocalError:
+        except ConnectionResetError or UnboundLocalError or TimeoutError or OSError or socket.error:
             self.reconnect_socket()
             try:
                 frame_size = self.trans_sock.recv(4)

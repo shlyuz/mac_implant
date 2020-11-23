@@ -5,7 +5,8 @@ from lib import transmit
 
 destinations = {"ipi": yadro.init,
                 "irk": yadro.rekey,
-                "gcmd": yadro.getcmd
+                "gcmd": yadro.getcmd,
+                "rcmda": yadro.ack_cmds
                 }
 
 

