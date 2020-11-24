@@ -86,12 +86,14 @@ class Transport:
             slen = struct.unpack('<I', frame_size)[0]
             frame = self.trans_sock.recv(slen)
             # self.reconnect_socket()
+            self.trans_sock.close()
+            self.reconnect_socket()
             return frame
         except ConnectionResetError or UnboundLocalError or TimeoutError or OSError or socket.error:
             self.reconnect_socket()
             try:
                 frame_size = self.trans_sock.recv(4)
-                if frame_size == b'':
+                if frame_size == b'' or frame_size == b'\x00\x00\x00\x00':
                     raise ConnectionResetError
             # except ConnectionResetError or BrokenPipeError:
             #     self.trans_sock.close()

