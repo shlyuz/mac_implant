@@ -88,8 +88,4 @@ while True:
     if len(vzhivlyat.cmd_queue) > 0:
         yadro.process_commands(vzhivlyat)
     vzhivlyat.logging.log(f"Waiting for {vzhivlyat.check_time}", level="debug")
-    for i in range(int(vzhivlyat.check_time)):
-        try:
-            sleep(1)
-        except KeyboardInterrupt:
-            break
+    sleep(int(vzhivlyat.check_time))

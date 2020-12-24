@@ -195,16 +195,39 @@ def ack_cmds(frame, component):
     return 0
 
 
+def execute_instruction(instruction):
+    if instruction['cmd'] == "shell_exec":
+        import subprocess
+        try:
+            instruction['output'] = subprocess.check_output(instruction['args'][0]['cmd_arg'], shell=True).decode('utf-8')
+        except Exception as e:
+            instruction['output'] = f"ERROR: {e}"
+    elif instruction['cmd'] == "raw_exec":
+        import subprocess
+        try:
+            instruction['output'] = subprocess.check_output(instruction['args'][0]['cmd_arg'], shell=False).decode('utf-8')
+        except Exception as e:
+            instruction['output'] = f"ERROR: {e}"
+    elif instruction['cmd'] == "pyexec":
+        try:
+            instruction['output'] = exec(instruction['args'][0]['cmd_arg'])
+        except Exception as e:
+            instruction['output'] = f"ERROR: {e}"
+    else:
+        instruction['output'] = f"ERROR: Instruction {instruction['cmd']} not supported"
+    return instruction
+
+
 def run_instructions(component):
     for command in component.cmd_processing_queue:
         try:
             cmd_index = _get_cmd_index(component, command['txid'], "processing")
+            command = execute_instruction(command)
             command['state'] = "EXECUTED"
             event_history = {"timestamp": time(), "event": "EXECUTED", "component": component.component_id}
             command['history'].append(event_history)
             component.logging.log(f"Executed {command['txid']}", level="info", source="lib.yadro")
             component.logging.log(f"Executed {command}", level="debug", source="lib.yadro")
-            command['output'] = "> ayyylmao"
             command['state'] = "FINISHED"
             event_history = {"timestamp": time(), "event": "FINISHED", "component": component.component_id}
             command['history'].append(event_history)
