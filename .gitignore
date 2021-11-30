@@ -30,6 +30,8 @@ venv/
 
 # No cache
 lib/__pycache__/
+lib/crypto/__pycache__/
+transports/__pycache__/
 
 # Shlyuz config
 config/shlyuz.conf
